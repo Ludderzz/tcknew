@@ -379,8 +379,8 @@ export default function DrawArea() {
           <div className="flex items-center gap-3 mb-4">
             <DownloadCloud className="w-6 h-6 text-[#D4AF37]" />
             <div>
-              <h2 className="text-lg font-bold text-gray-100 tracking-wide">Automated Entry Scraper</h2>
-              <p className="text-xs text-gray-400">Pull participant data streams directly into target competitions via backend worker</p>
+              <h2 className="text-lg font-bold text-gray-100 tracking-wide">The Cash Kings Facebook Poster</h2>
+              <p className="text-xs text-gray-400">Pull participant comments and randomise the win</p>
             </div>
           </div>
 
@@ -403,10 +403,10 @@ export default function DrawArea() {
             >
               {scrapeEntriesMutation.isPending ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" /> Scraping & Saving...
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" /> Saving...
                 </>
               ) : (
-                "Run Scraper Ingest"
+                "Run"
               )}
             </Button>
           </form>
