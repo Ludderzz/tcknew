@@ -19,25 +19,59 @@ This guide will help you connect the Kings Draw system to Supabase for persisten
 3. Copy and paste the following SQL:
 
 ```sql
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
 CREATE TABLE public.draws_audit (
-  draw_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  competition_title TEXT NOT NULL,
-  entry_count INTEGER NOT NULL,
-  winner_tickets JSONB NOT NULL,
-  proof_hash TEXT NOT NULL,
-  timestamp TIMESTAMPTZ DEFAULT now() NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now()
+  draw_id text NOT NULL DEFAULT uuid_generate_v4(),
+  competition_title text NOT NULL,
+  entry_count integer NOT NULL,
+  winner_tickets jsonb NOT NULL,
+  proof_hash text NOT NULL,
+  timestamp timestamp with time zone NOT NULL DEFAULT now(),
+  entry_hash text NOT NULL,
+  server_seed text NOT NULL,
+  nonce integer NOT NULL DEFAULT 1,
+  prize_draw_link text,
+  total_max_tickets integer,
+  sold_tickets integer,
+  CONSTRAINT draws_audit_pkey PRIMARY KEY (draw_id, timestamp)
 );
-
--- Enable Row Level Security
-ALTER TABLE public.draws_audit ENABLE ROW LEVEL SECURITY;
-
--- Create a policy to allow public read access
-CREATE POLICY "Public can view draws_audit" ON public.draws_audit
-  FOR SELECT USING (true);
-
--- Create an index on proof_hash for faster lookups
-CREATE INDEX idx_draws_audit_proof_hash ON public.draws_audit(proof_hash);
+CREATE TABLE public.admins (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL UNIQUE,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT admins_pkey PRIMARY KEY (id),
+  CONSTRAINT admins_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.user_roles (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  user_id uuid NOT NULL,
+  role text NOT NULL CHECK (role = ANY (ARRAY['admin'::text, 'user'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT user_roles_pkey PRIMARY KEY (id),
+  CONSTRAINT user_roles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.competition_entries (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  competition_id text,
+  competition_title text,
+  participant_name text,
+  ticket_number text,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT competition_entries_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.facebook_draws (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  competition_title text NOT NULL DEFAULT 'Facebook Giveaway Draw'::text,
+  total_comments integer NOT NULL DEFAULT 0,
+  comments_payload jsonb NOT NULL DEFAULT '[]'::jsonb,
+  winner_data jsonb,
+  server_seed text,
+  proof_hash text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT facebook_draws_pkey PRIMARY KEY (id)
+);
 ```
 
 4. Click "Run" to execute the SQL
