@@ -1,6 +1,6 @@
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { appRouter } from "../server/routers"; // Removed .ts extension
-import { createContext } from "../server/_core/context";
+import { appRouter } from "../server/routers.js";          // Change from .ts to .js
+import { createContext } from "../server/_core/context.js"; // Add .js
 import express from "express";
 import cors from "cors";
 
