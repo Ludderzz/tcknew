@@ -73,12 +73,12 @@ export default function Home() {
           <div className="flex items-center gap-3">
             <img
               src="/tck-logo.png"
-              alt="The Cash King"
+              alt="The Cash Kings"
               className="h-12 w-28 object-contain drop-shadow-[0_0_10px_rgba(212,175,55,0.3)]"
             />
             <div className="flex flex-col leading-none">
               <span className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-[#bf953f] via-[#fcf6ba] to-[#b38728] tracking-wide uppercase">
-                The Cash King
+                The Cash Kings
               </span>
               <span className="text-[10px] text-gray-400 tracking-widest uppercase font-semibold">Draw System</span>
             </div>
