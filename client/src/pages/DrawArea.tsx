@@ -269,7 +269,7 @@ export default function DrawArea() {
       <div className="min-h-screen bg-[#080808] flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 text-[#D4AF37] animate-spin mx-auto mb-4" />
-          <p className="text-gray-300 tracking-wider">Loading The Cash King...</p>
+          <p className="text-gray-300 tracking-wider">Loading The Cash Kings...</p>
         </div>
       </div>
     );
@@ -308,7 +308,7 @@ export default function DrawArea() {
             <div className="flex items-center gap-3">
               <img
                 src="/tck-logo.png"
-                alt="The Cash King"
+                alt="The Cash Kings"
                 className="h-10 w-10 object-contain drop-shadow-[0_0_8px_rgba(212,175,55,0.3)]"
               />
               <div>
