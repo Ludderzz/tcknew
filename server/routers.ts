@@ -1,8 +1,8 @@
-import { publicProcedure, router } from "./_core/trpc";
+import { publicProcedure, router } from "./_core/trpc.js";
 import { z } from "zod";
-import { fetchAllCompetitionEntries } from "./scraper";
-import { getLiveWinners } from "./winners";
-import { scrapeFacebookPostComments, processFacebookCommentsAndSave } from "./facebookPicker";
+import { fetchAllCompetitionEntries } from "./scraper.js";
+import { getLiveWinners } from "./winners.js";
+import { scrapeFacebookPostComments, processFacebookCommentsAndSave } from "./facebookPicker.js";
 
 export const appRouter = router({
   auth: router({
