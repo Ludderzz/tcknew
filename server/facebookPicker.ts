@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase } from "../client/src/lib/supabase.js"; // or whatever relative path leads to that file
 import crypto from "crypto";
 
 export interface PickFacebookWinnerParams {
