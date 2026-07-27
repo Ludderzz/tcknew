@@ -59,7 +59,7 @@ export default function Home() {
       <div className="min-h-screen bg-[#080808] flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 text-[#D4AF37] animate-spin mx-auto mb-4" />
-          <p className="text-gray-300 tracking-wider">Loading The Cash King...</p>
+          <p className="text-gray-300 tracking-wider">Loading The Cash Kings...</p>
         </div>
       </div>
     );
@@ -126,7 +126,7 @@ export default function Home() {
             <div className="mb-6 flex justify-center">
               <img
                 src="/hero-image.webp"
-                alt="The Cash King"
+                alt="The Cash Kings"
                 className="h-48 w-120 object-contain drop-shadow-[0_0_35px_rgba(212,175,55,0.4)]"
               />
             </div>
