@@ -379,8 +379,8 @@ export default function DrawArea() {
           <div className="flex items-center gap-3 mb-4">
             <DownloadCloud className="w-6 h-6 text-[#D4AF37]" />
             <div>
-              <h2 className="text-lg font-bold text-gray-100 tracking-wide">The Cash Kings Facebook Poster</h2>
-              <p className="text-xs text-gray-400">Pull participant comments and randomise the win</p>
+              <h2 className="text-lg font-bold text-gray-100 tracking-wide">The Cash Kings Entry List</h2>
+              <p className="text-xs text-gray-400">Pull participant from the entry lists and randomise the win</p>
             </div>
           </div>
 
