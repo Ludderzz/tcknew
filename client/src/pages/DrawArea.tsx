@@ -579,7 +579,7 @@ export default function DrawArea() {
               }}
               className="w-full bg-gradient-to-r from-[#bf953f] via-[#fcf6ba] to-[#b38728] text-black font-bold hover:opacity-90 shadow-[0_0_15px_rgba(212,175,55,0.2)]"
             >
-              Launch Core Module
+              Launch
             </Button>
           </Card>
 
@@ -595,7 +595,7 @@ export default function DrawArea() {
               onClick={() => setActiveMode("wheel")}
               className="w-full bg-gradient-to-r from-[#bf953f] via-[#fcf6ba] to-[#b38728] text-black font-bold hover:opacity-90 shadow-[0_0_15px_rgba(212,175,55,0.2)]"
             >
-              Launch Module
+              Launch
             </Button>
           </Card>
 
@@ -611,7 +611,7 @@ export default function DrawArea() {
               onClick={() => setActiveMode("race")}
               className="w-full bg-gradient-to-r from-[#bf953f] via-[#fcf6ba] to-[#b38728] text-black font-bold hover:opacity-90 shadow-[0_0_15px_rgba(212,175,55,0.2)]"
             >
-              Launch Module
+              Launch
             </Button>
           </Card>
         </div>
