@@ -1,18 +1,24 @@
-import { supabase } from "../client/src/lib/supabase.js"; // or whatever relative path leads to that file
+import { supabase } from "@/lib/supabase";
 import crypto from "crypto";
 
+export type FacebookCommentItem =
+  | string
+  | {
+      [key: string]: any;
+    };
+
 export interface PickFacebookWinnerParams {
-  comments: string[]; // Array formatted as ["Author Name: Comment body", ...]
+  comments: FacebookCommentItem[];
   competitionTitle?: string;
 }
 
-// Stub/helper for URL-based scraping if needed by pickFacebookWinner
+// 1. Export the missing scraper stub function needed by pickFacebookWinner
 export async function scrapeFacebookPostComments(postUrl: string) {
   console.log(`[FacebookPicker] Scraping requested for URL: ${postUrl}`);
-  // Return an array structure matching expected participant data
   return [] as Array<{ participantName: string; ticketNumber: string }>;
 }
 
+// 2. Export the draw saver with flexible field resolution
 export async function processFacebookCommentsAndSave({
   comments,
   competitionTitle = "Facebook Giveaway Draw",
@@ -22,35 +28,71 @@ export async function processFacebookCommentsAndSave({
   }
 
   const totalEntries = comments.length;
-
-  // 1. Generate a secure random server seed for verification
   const serverSeed = crypto.randomBytes(32).toString("hex");
-
-  // 2. Select a cryptographically fair random winner index
   const winnerIndex = crypto.randomInt(0, totalEntries);
   const selectedComment = comments[winnerIndex];
 
-  // Parse "Author Name: Comment body"
-  const splitIdx = selectedComment.indexOf(":");
-  const winnerName =
-    splitIdx !== -1 ? selectedComment.substring(0, splitIdx).trim() : selectedComment;
-  const winnerMessage =
-    splitIdx !== -1 ? selectedComment.substring(splitIdx + 1).trim() : "";
+  let winnerName = "";
+  let winnerMessage = "";
+  let avatarUrl = "";
+  let profileUrl = "";
+
+  if (typeof selectedComment === "string") {
+    const splitIdx = selectedComment.indexOf(":");
+    winnerName = splitIdx !== -1 ? selectedComment.substring(0, splitIdx).trim() : selectedComment;
+    winnerMessage = splitIdx !== -1 ? selectedComment.substring(splitIdx + 1).trim() : "";
+  } else if (selectedComment && typeof selectedComment === "object") {
+    // Resolve Name across extension formats
+    winnerName =
+      selectedComment.participantName ||
+      selectedComment.name ||
+      selectedComment.author ||
+      selectedComment.authorName ||
+      selectedComment.userName ||
+      selectedComment.user?.name ||
+      selectedComment.profileName ||
+      "Anonymous";
+
+    // Resolve Message across extension formats
+    winnerMessage =
+      selectedComment.message ||
+      selectedComment.comment ||
+      selectedComment.text ||
+      selectedComment.commentText ||
+      selectedComment.body ||
+      selectedComment.content ||
+      "";
+
+    // Resolve Avatars / Profiles
+    avatarUrl =
+      selectedComment.avatarUrl ||
+      selectedComment.avatar ||
+      selectedComment.user?.avatar ||
+      selectedComment.profilePicture ||
+      "";
+
+    profileUrl =
+      selectedComment.profileUrl ||
+      selectedComment.profile ||
+      selectedComment.user?.profileUrl ||
+      selectedComment.authorUrl ||
+      "";
+  }
 
   const winnerData = {
     participantName: winnerName,
     message: winnerMessage,
     ticketNumber: winnerIndex + 1,
+    avatarUrl,
+    profileUrl,
   };
 
-  // 3. Compute public proof and entry hashes
   const entryHash = crypto.createHash("sha256").update(JSON.stringify(comments)).digest("hex");
   const proofHash = crypto
     .createHash("sha256")
     .update(`${serverSeed}:${entryHash}:${winnerIndex}`)
     .digest("hex");
 
-  // 4. Save directly into dedicated `facebook_draws` table
   const { data, error } = await supabase
     .from("facebook_draws")
     .insert([
