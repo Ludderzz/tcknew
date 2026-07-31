@@ -4,7 +4,7 @@
   "installCommand": "npm install",
   "framework": null,
   "functions": {
-    "api/**/*.ts": {
+    "api/*.ts": {
       "includeFiles": "server/**"
     }
   },
