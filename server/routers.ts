@@ -1,8 +1,20 @@
-import { publicProcedure, router } from "./_core/trpc.js";
+import { publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { fetchAllCompetitionEntries } from "./scraper.js";
-import { getLiveWinners } from "./winners.js";
-import { scrapeFacebookPostComments, processFacebookCommentsAndSave } from "./facebookPicker.js";
+import { fetchAllCompetitionEntries } from "./scraper";
+import { getLiveWinners } from "./winners";
+import { scrapeFacebookPostComments, processFacebookCommentsAndSave } from "./facebookPicker";
+
+// Define schema for structured Facebook comment objects exported by Chrome extension
+const CommentObjectSchema = z.object({
+  name: z.string().optional(),
+  participantName: z.string().optional(),
+  message: z.string().optional(),
+  comment: z.string().optional(),
+  avatarUrl: z.string().optional(),
+  avatar: z.string().optional(),
+  profileUrl: z.string().optional(),
+  profile: z.string().optional(),
+});
 
 export const appRouter = router({
   auth: router({
@@ -70,7 +82,8 @@ export const appRouter = router({
     saveFacebookExtensionDraw: publicProcedure
       .input(
         z.object({
-          comments: z.array(z.string()),
+          // Accept EITHER an array of text strings OR an array of structured JSON objects
+          comments: z.array(z.union([z.string(), CommentObjectSchema])),
           competitionTitle: z.string().optional(),
         })
       )
