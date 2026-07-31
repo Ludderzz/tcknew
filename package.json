@@ -4,12 +4,12 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "cross-env NODE_ENV=development tsx watch server/_core/index.ts",
-        "build": "cross-env NODE_ENV=production vite build && cross-env NODE_ENV=production esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
-    "start": "cross-env NODE_ENV=production node dist/index.js",
-    "check": "tsc --noEmit",
-    "format": "prettier --write .",
-    "test": "vitest run"
+"dev": "cross-env NODE_ENV=development tsx watch server/_core/index.ts",
+  "build": "cross-env NODE_ENV=production vite build && cross-env NODE_ENV=production esbuild api/index.ts --platform=node --packages=external --bundle --format=esm --outdir=api",
+  "start": "cross-env NODE_ENV=production node dist/index.js",
+  "check": "tsc --noEmit",
+  "format": "prettier --write .",
+  "test": "vitest run"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",
