@@ -1,8 +1,8 @@
-import { publicProcedure, router } from "./_core/trpc.js";
+import { publicProcedure, router } from "./_core/trpc";
 import { z } from "zod";
-import { fetchAllCompetitionEntries } from "./scraper.js";
-import { getLiveWinners } from "./winners.js";
-import { scrapeFacebookPostComments, processFacebookCommentsAndSave } from "./facebookPicker.js";
+import { fetchAllCompetitionEntries } from "./scraper";
+import { getLiveWinners } from "./winners";
+import { scrapeFacebookPostComments, processFacebookCommentsAndSave } from "./facebookPicker";
 
 // Define schema for structured Facebook comment objects exported by Chrome extension
 const CommentObjectSchema = z.object({
