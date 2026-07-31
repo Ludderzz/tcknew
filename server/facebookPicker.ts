@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabase } from "../client/src/lib/supabase.js";
 import crypto from "crypto";
 
 export type FacebookCommentItem =
