@@ -3,7 +3,7 @@ import { useSupabaseAuth } from "@/contexts/SupabaseAuthContext";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useLocation } from "wouter";
-import { Crown, AlertCircle, Home, ShieldCheck, History, Calendar, Users, Eye, EyeOff, Ticket, BarChart3, Loader2, ListOrdered, FileSpreadsheet, DownloadCloud, Trash2, Facebook } from "lucide-react";
+import { Crown, AlertCircle, Home, ShieldCheck, History, Calendar, Users, Eye, EyeOff, Ticket, BarChart3, Loader2, ListOrdered, FileSpreadsheet, DownloadCloud, Trash2, Facebook, ExternalLink, Upload, FileText } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { trpc } from "@/lib/trpc";
 import ClassicDraw from "@/components/draw/ClassicDraw";
@@ -30,6 +30,8 @@ export default function DrawArea() {
   const [fbCommentsText, setFbCommentsText] = useState("");
   const [fbCompTitle, setFbCompTitle] = useState("");
   const [fbResult, setFbResult] = useState<any>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
   const saveFacebookDrawMutation = trpc.draw.saveFacebookExtensionDraw.useMutation();
 
   // Imported Competitions List State
@@ -53,6 +55,52 @@ export default function DrawArea() {
   const [isCheckingDrawStatus, setIsCheckingDrawStatus] = useState(false);
   const [hasBeenDrawn, setHasBeenDrawn] = useState(false);
   const [isDeletingComp, setIsDeletingComp] = useState(false);
+
+  // Helper to request higher resolution Facebook images from CDN
+  const getHighResFbAvatar = (url: string | undefined) => {
+    if (!url) return "";
+    return url
+      .replace(/\/s\d+x\d+\//, "/s300x300/")
+      .replace(/\/p\d+x\d+\//, "/p300x300/")
+      .replace(/width=\d+/, "width=300")
+      .replace(/height=\d+/, "height=300");
+  };
+
+  // Drag and Drop File Handlers
+  const handleFileRead = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      setFbCommentsText(content);
+      setFileName(file.name);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const file = e.dataTransfer.files[0];
+      handleFileRead(file);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleFileRead(e.target.files[0]);
+    }
+  };
 
   // Set up live clock ticker
   useEffect(() => {
@@ -97,7 +145,6 @@ export default function DrawArea() {
 
       if (error) throw error;
 
-      // Ensure deduplication keys are entirely unique using a Map with fallback index keys
       const uniqueCompsMap = new Map();
       (data || []).forEach((item, index) => {
         const uniqueKey = item.competition_id || item.competition_title || `comp_fallback_${index}`;
@@ -141,11 +188,7 @@ export default function DrawArea() {
 
       if (error) throw error;
 
-      if (data && data.length > 0) {
-        setHasBeenDrawn(true);
-      } else {
-        setHasBeenDrawn(false);
-      }
+      setHasBeenDrawn(data && data.length > 0);
     } catch (err) {
       console.error("Failed to check draw audit status:", err);
       setHasBeenDrawn(false);
@@ -154,7 +197,6 @@ export default function DrawArea() {
     }
   };
 
-  // Confirm and execute deletion of competition entries with robust filtering & selection
   const handleConfirmDelete = async () => {
     if (!deleteTargetComp) return;
 
@@ -169,7 +211,6 @@ export default function DrawArea() {
       }
 
       const { error } = await query;
-
       if (error) throw error;
 
       alert("Competition entries successfully deleted.");
@@ -183,7 +224,6 @@ export default function DrawArea() {
     }
   };
 
-  // Handler to execute scraper workflow cleanly matching competition_entries schema columns
   const handleRunScraper = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!scraperUrl.trim()) return;
@@ -206,7 +246,6 @@ export default function DrawArea() {
             ticket_number: entry.ticketNumber != null ? String(entry.ticketNumber) : (entry.Ticket != null ? String(entry.Ticket) : null),
           }));
 
-          // Insert in chunks of 500 to prevent browser thread locks and payload limits
           const CHUNK_SIZE = 500;
           for (let i = 0; i < formattedRows.length; i += CHUNK_SIZE) {
             const chunk = formattedRows.slice(i, i + CHUNK_SIZE);
@@ -228,38 +267,107 @@ export default function DrawArea() {
     }
   };
 
-  // Handler to execute Facebook comment draw
+  // ENHANCED FACEBOOK PICKER HANDLER (Supports flexible JSON formats + multi-delimiter text)
   const handleRunFbPicker = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fbCommentsText.trim()) return;
+    const rawInput = fbCommentsText.trim();
+    if (!rawInput) return;
 
-    const parsedComments = fbCommentsText
-      .split("\n")
-      .map(line => line.trim())
-      .filter(line => line.length > 0);
+    let parsedCommentsPayload: any[] = [];
 
-    if (parsedComments.length === 0) {
-      alert("Please provide at least one comment.");
+    // 1. Try JSON Parsing
+    try {
+      const jsonData = JSON.parse(rawInput);
+      const items = Array.isArray(jsonData)
+        ? jsonData
+        : jsonData.comments || jsonData.data || jsonData.items || [jsonData];
+
+      if (Array.isArray(items) && items.length > 0) {
+        parsedCommentsPayload = items.map((item: any) => {
+          if (typeof item === "string") return item;
+
+          // Normalize object fields across various scrapers/extensions
+          return {
+            participantName:
+              item.participantName ||
+              item.name ||
+              item.author ||
+              item.authorName ||
+              item.user_name ||
+              item.userName ||
+              item.full_name ||
+              item.profileName ||
+              item.user?.name ||
+              item.user?.full_name ||
+              "Anonymous",
+            message:
+              item.message ||
+              item.comment ||
+              item.text ||
+              item.comment_text ||
+              item.commentText ||
+              item.message_text ||
+              item.body ||
+              item.content ||
+              "",
+            avatarUrl:
+              item.avatarUrl ||
+              item.avatar ||
+              item.profilePicture ||
+              item.user?.avatar ||
+              "",
+            profileUrl:
+              item.profileUrl ||
+              item.profile ||
+              item.authorUrl ||
+              item.user?.profileUrl ||
+              "",
+          };
+        });
+      }
+    } catch (jsonErr) {
+      // Not valid JSON, fall through to text parsing
+    }
+
+    // 2. Line-by-Line Parsing Fallback (Supports ":" "-" "|")
+    if (parsedCommentsPayload.length === 0) {
+      const lines = rawInput
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+
+      parsedCommentsPayload = lines.map((line) => {
+        // Look for common separators: ":", "-", "|"
+        const delimiterMatch = line.match(/^([^:\-\|]+)[:\-\|]\s*(.+)$/);
+        if (delimiterMatch) {
+          return {
+            participantName: delimiterMatch[1].trim(),
+            message: delimiterMatch[2].trim(),
+          };
+        }
+        return line; // Raw string fallback
+      });
+    }
+
+    if (parsedCommentsPayload.length === 0) {
+      alert("Please provide valid Facebook entries or paste a valid JSON export.");
       return;
     }
 
     try {
       const result = await saveFacebookDrawMutation.mutateAsync({
-        comments: parsedComments,
+        comments: parsedCommentsPayload,
         competitionTitle: fbCompTitle.trim() || "Facebook Giveaway Draw",
       });
 
       setFbResult(result);
-      fetchAuditLogs(); // Refresh the historical audit trail with the new draw
+      fetchAuditLogs();
     } catch (err: any) {
       console.error("Facebook comment picker failed:", err);
-      
-      // Extract clean message if it's an HTML error or standard tRPC error string
       let errorMessage = err.message || "Unknown error";
       if (errorMessage.includes("Unexpected token") || errorMessage.includes("The page")) {
-        errorMessage = "Server returned an HTML error page instead of JSON. Check your backend server console logs for internal server crashes.";
+        errorMessage = "Server returned an HTML error page instead of JSON. Check your backend console logs.";
       }
-      
       alert(`Facebook picker failed: ${errorMessage}`);
     }
   };
@@ -269,7 +377,7 @@ export default function DrawArea() {
       <div className="min-h-screen bg-[#080808] flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 text-[#D4AF37] animate-spin mx-auto mb-4" />
-          <p className="text-gray-300 tracking-wider">Loading The Cash Kings...</p>
+          <p className="text-gray-300 tracking-wider">Loading The Cash King...</p>
         </div>
       </div>
     );
@@ -308,7 +416,7 @@ export default function DrawArea() {
             <div className="flex items-center gap-3">
               <img
                 src="/tck-logo.png"
-                alt="The Cash Kings"
+                alt="The Cash King"
                 className="h-10 w-10 object-contain drop-shadow-[0_0_8px_rgba(212,175,55,0.3)]"
               />
               <div>
@@ -379,8 +487,8 @@ export default function DrawArea() {
           <div className="flex items-center gap-3 mb-4">
             <DownloadCloud className="w-6 h-6 text-[#D4AF37]" />
             <div>
-              <h2 className="text-lg font-bold text-gray-100 tracking-wide">The Cash Kings Entry List</h2>
-              <p className="text-xs text-gray-400">Pull participant from the entry lists and randomise the win</p>
+              <h2 className="text-lg font-bold text-gray-100 tracking-wide">Automated Entry Scraper</h2>
+              <p className="text-xs text-gray-400">Pull participant data streams directly into target competitions via backend worker</p>
             </div>
           </div>
 
@@ -403,10 +511,10 @@ export default function DrawArea() {
             >
               {scrapeEntriesMutation.isPending ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" /> Saving...
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" /> Scraping & Saving...
                 </>
               ) : (
-                "Run"
+                "Run Scraper Ingest"
               )}
             </Button>
           </form>
@@ -419,7 +527,7 @@ export default function DrawArea() {
             <Facebook className="w-6 h-6 text-[#1877F2]" />
             <div>
               <h2 className="text-lg font-bold text-gray-100 tracking-wide">Facebook Comment Picker</h2>
-              <p className="text-xs text-gray-400">Execute a provably fair draw using scraped Facebook comments</p>
+              <p className="text-xs text-gray-400">Drag and drop a JSON/TXT file, or paste your exported JSON / line-separated comments</p>
             </div>
           </div>
 
@@ -435,11 +543,47 @@ export default function DrawArea() {
               />
             </div>
 
+            {/* Drag & Drop Area */}
+            <div
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              className={`border-2 border-dashed rounded-lg p-5 text-center transition-all ${
+                isDragging
+                  ? "border-[#1877F2] bg-[#1877F2]/10"
+                  : "border-[#333] hover:border-[#1877F2]/50 bg-[#0c0c0c]/50"
+              }`}
+            >
+              <div className="flex flex-col items-center justify-center gap-2">
+                <Upload className={`w-8 h-8 ${isDragging ? "text-[#1877F2]" : "text-gray-500"}`} />
+                <p className="text-xs text-gray-300 font-medium">
+                  Drag & drop your exported <code className="text-[#1877F2]">.json</code> or <code className="text-[#1877F2]">.txt</code> file here, or{" "}
+                  <label className="text-[#1877F2] hover:underline cursor-pointer font-bold">
+                    browse files
+                    <input
+                      type="file"
+                      accept=".json,.txt"
+                      className="hidden"
+                      onChange={handleFileInputChange}
+                    />
+                  </label>
+                </p>
+                {fileName && (
+                  <div className="flex items-center gap-1.5 mt-1 text-xs text-[#2ecc71] font-mono bg-[#141414] px-3 py-1 rounded border border-[#2a2a2a]">
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Loaded File: <strong>{fileName}</strong></span>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-gray-300 uppercase tracking-wider">Comments Stream (One per line: "Author: Message")</label>
+              <label className="text-xs font-semibold text-gray-300 uppercase tracking-wider">
+                Comments Input (Paste JSON Export OR line-by-line format)
+              </label>
               <textarea
-                rows={4}
-                placeholder={`John Doe: Winning entry!\nJane Smith: Count me in\nAlex Taylor: Fingers crossed`}
+                rows={5}
+                placeholder={`Paste the exported [.json] content from your Extension OR use lines like:\nJohn Doe: Winning entry!\nJane Smith - Count me in`}
                 value={fbCommentsText}
                 onChange={(e) => setFbCommentsText(e.target.value)}
                 required
@@ -462,39 +606,101 @@ export default function DrawArea() {
             </Button>
           </form>
 
+          {/* Facebook Winner Display Box */}
           {fbResult && (
-            <div className="mt-6 p-4 bg-[#0c0c0c] border border-[#2a2a2a] rounded-lg space-y-3">
-              <div className="flex items-center justify-between border-b border-[#222] pb-2">
-                <span className="text-xs font-bold text-[#1877F2] uppercase tracking-wider">Draw Results</span>
+            <div className="mt-6 p-6 bg-[#0c0c0c] border border-[#2a2a2a] rounded-lg relative overflow-hidden">
+              <div className="flex items-center justify-between border-b border-[#222] pb-3 mb-6">
+                <span className="text-xs font-bold text-[#1877F2] uppercase tracking-wider">
+                  Draw Results
+                </span>
                 <span className="text-xs font-mono text-gray-400">
                   Total Entries: {fbResult.totalEntries}
                 </span>
               </div>
 
               {fbResult.winner ? (
-                <div className="bg-[#141414] border border-[#333] p-4 rounded-lg space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs uppercase tracking-wider font-bold text-amber-400">👑 Winner Selected</span>
-                    <span className="text-xs text-gray-400 font-mono">Ticket #{fbResult.winner.ticketNumber}</span>
+                <div className="bg-[#141414] border border-[#333] p-6 rounded-lg relative flex flex-col items-center text-center">
+                  {/* Ticket Header Badge */}
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="text-xs uppercase tracking-wider font-bold text-amber-400">
+                      👑 Winner Selected
+                    </span>
+                    <span className="text-xs text-gray-400 font-mono bg-[#080808] px-2 py-0.5 rounded border border-[#222]">
+                      Ticket #{fbResult.winner.ticketNumber}
+                    </span>
                   </div>
-                  <p className="text-base font-bold text-gray-100">{fbResult.winner.participantName}</p>
+
+                  {/* 1. Profile Picture (Big, Centered & High-Res CDN transformed) */}
+                  <div className="relative mb-3">
+                    {fbResult.winner.avatarUrl || fbResult.winner.avatar ? (
+                      <img
+                        src={getHighResFbAvatar(fbResult.winner.avatarUrl || fbResult.winner.avatar)}
+                        alt={fbResult.winner.participantName}
+                        className="w-24 h-24 rounded-full object-cover border-4 border-[#1877F2] shadow-[0_0_20px_rgba(24,119,242,0.3)]"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          const rawUrl = fbResult.winner.avatarUrl || fbResult.winner.avatar;
+                          if (target.src !== rawUrl) {
+                            target.src = rawUrl;
+                          } else {
+                            target.src = "https://via.placeholder.com/96?text=FB";
+                          }
+                        }}
+                      />
+                    ) : (
+                      <div className="w-24 h-24 rounded-full bg-[#1877F2]/20 border-4 border-[#1877F2] flex items-center justify-center text-2xl font-bold text-[#1877F2] shadow-[0_0_20px_rgba(24,119,242,0.3)]">
+                        FB
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 2. Name */}
+                  <div className="flex items-center justify-center gap-1.5 mb-3">
+                    <h3 className="text-lg font-semibold text-gray-100">
+                      {fbResult.winner.participantName}
+                    </h3>
+                    {(fbResult.winner.profileUrl || fbResult.winner.profile) && (
+                      <a
+                        href={fbResult.winner.profileUrl || fbResult.winner.profile}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[#1877F2] hover:text-[#4267B2] transition-colors"
+                        title="View Facebook Profile"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    )}
+                  </div>
+
+                  {/* 3. Comment Box (Centered) */}
                   {fbResult.winner.message && (
-                    <p className="text-sm text-gray-300 bg-[#080808] p-2.5 rounded border border-[#222] font-mono">
-                      "{fbResult.winner.message}"
-                    </p>
+                    <div className="w-full max-w-md bg-[#080808] p-3.5 rounded-lg border border-[#222] mb-10">
+                      <p className="text-sm text-gray-200 font-mono italic">
+                        "{fbResult.winner.message}"
+                      </p>
+                    </div>
                   )}
-                  <div className="pt-2 border-t border-[#222] text-[10px] font-mono text-gray-400 space-y-1">
-                    <p className="truncate"><span className="text-gray-500">Proof Hash (USE THIS FOR VERIFY):</span> {fbResult.proofHash}</p>
-                    <p className="truncate"><span className="text-gray-500">Server Seed:</span> {fbResult.serverSeed}</p>
+
+                  {/* 4. Server Seeds (Small and tucked into the bottom corner) */}
+                  <div className="mt-4 self-end text-right text-[9px] font-mono text-gray-500 space-y-0.5 opacity-75 hover:opacity-100 transition-opacity">
+                    <p className="truncate max-w-[280px]">
+                      <span>Hash:</span> {fbResult.proofHash}
+                    </p>
+                    <p className="truncate max-w-[280px]">
+                      <span>Seed:</span> {fbResult.serverSeed}
+                    </p>
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-amber-500 text-center py-2">No eligible entries found matching criteria.</p>
+                <p className="text-sm text-amber-500 text-center py-2">
+                  No eligible entries found matching criteria.
+                </p>
               )}
             </div>
           )}
         </Card>
 
+        {/* Competition List & Historical Audits */}
         <Card className="bg-[#121212] border border-[#2a2a2a] p-6 text-gray-100 shadow-xl">
           <div className="flex items-center justify-between mb-6 border-b border-[#222] pb-4">
             <div className="flex items-center gap-2.5">
@@ -517,7 +723,7 @@ export default function DrawArea() {
 
           {isImportsLoading ? (
             <div className="text-center py-10 text-gray-500 text-sm flex items-center justify-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin text-[#D4AF37]" /> Loading imported competitions from Supabase...
+              <Loader2 className="w-4 h-4 animate-spin text-[#D4AF37]" /> Loading imported competitions...
             </div>
           ) : importedCompetitions.length === 0 ? (
             <div className="text-center py-10 text-gray-500 text-sm">
@@ -563,6 +769,7 @@ export default function DrawArea() {
           )}
         </Card>
 
+        {/* Draw Modes Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="bg-[#121212] border border-[#2a2a2a] hover:border-[#D4AF37]/50 transition-all shadow-xl cursor-pointer flex flex-col justify-between p-6">
             <div className="text-center p-4">
@@ -579,7 +786,7 @@ export default function DrawArea() {
               }}
               className="w-full bg-gradient-to-r from-[#bf953f] via-[#fcf6ba] to-[#b38728] text-black font-bold hover:opacity-90 shadow-[0_0_15px_rgba(212,175,55,0.2)]"
             >
-              Launch
+              Launch Core Module
             </Button>
           </Card>
 
@@ -595,7 +802,7 @@ export default function DrawArea() {
               onClick={() => setActiveMode("wheel")}
               className="w-full bg-gradient-to-r from-[#bf953f] via-[#fcf6ba] to-[#b38728] text-black font-bold hover:opacity-90 shadow-[0_0_15px_rgba(212,175,55,0.2)]"
             >
-              Launch
+              Launch Module
             </Button>
           </Card>
 
@@ -611,11 +818,12 @@ export default function DrawArea() {
               onClick={() => setActiveMode("race")}
               className="w-full bg-gradient-to-r from-[#bf953f] via-[#fcf6ba] to-[#b38728] text-black font-bold hover:opacity-90 shadow-[0_0_15px_rgba(212,175,55,0.2)]"
             >
-              Launch
+              Launch Module
             </Button>
           </Card>
         </div>
 
+        {/* Audit Trail Modal */}
         <Card className="bg-[#121212] border border-[#2a2a2a] p-6 text-gray-100 shadow-xl">
           <div className="flex items-center justify-between mb-6 border-b border-[#222] pb-4">
             <div className="flex items-center gap-2.5">
@@ -758,10 +966,19 @@ export default function DrawArea() {
                                   const winnerUniqueKey = winner.ticketNumber || winner.Ticket || `winner_${globalIdx}`;
                                   return (
                                     <div key={winnerUniqueKey} className="flex justify-between items-center p-3 bg-[#121212] rounded border border-[#2a2a2a] text-xs">
-                                      <span className="font-bold text-gray-200 max-w-[180px] truncate flex items-center gap-1.5">
-                                        <span className="text-gray-500 font-normal">#{globalIdx + 1}</span>
-                                        {winner.participantName || winner.Name || winner.username || "Anonymous Entrant"}
-                                      </span>
+                                      <div className="flex items-center gap-2 max-w-[200px] truncate">
+                                        {(winner.avatarUrl || winner.avatar) && (
+                                          <img 
+                                            src={getHighResFbAvatar(winner.avatarUrl || winner.avatar)} 
+                                            alt={winner.participantName}
+                                            className="w-6 h-6 rounded-full object-cover border border-[#1877F2]"
+                                          />
+                                        )}
+                                        <span className="font-bold text-gray-200 truncate flex items-center gap-1.5">
+                                          <span className="text-gray-500 font-normal">#{globalIdx + 1}</span>
+                                          {winner.participantName || winner.Name || winner.username || "Anonymous Entrant"}
+                                        </span>
+                                      </div>
                                       <span className="font-mono font-black text-[#D4AF37]">
                                         #{winner.ticketNumber || winner.Ticket}
                                       </span>
@@ -782,12 +999,11 @@ export default function DrawArea() {
           )}
         </Card>
 
-        {/* Delete Confirmation Modal */}
+        {/* Modal overlays */}
         {deleteTargetComp && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
             <Card className="max-w-md w-full bg-[#141414] border border-[#333] shadow-2xl p-6 relative">
               <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-red-600 via-orange-500 to-red-600" />
-              
               <div className="flex items-center gap-3 mb-4">
                 <AlertCircle className="w-6 h-6 text-red-500 flex-shrink-0" />
                 <h3 className="text-lg font-bold text-gray-100">Delete Competition Entries</h3>
@@ -797,31 +1013,6 @@ export default function DrawArea() {
                 <div className="py-8 text-center text-gray-400 text-sm flex items-center justify-center gap-2">
                   <Loader2 className="w-5 h-5 animate-spin text-[#D4AF37]" /> Checking audit status...
                 </div>
-              ) : hasBeenDrawn ? (
-                <div className="space-y-4 mb-6">
-                  <p className="text-sm text-gray-300">
-                    Competition: <span className="font-bold text-[#D4AF37]">{deleteTargetComp.title}</span>
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    This competition has already been recorded in the draw audit logs.
-                  </p>
-                  <div className="flex gap-3 pt-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setDeleteTargetComp(null)}
-                      className="flex-1 border-[#333] hover:bg-[#1a1a1a] text-gray-300"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleConfirmDelete}
-                      disabled={isDeletingComp}
-                      className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold"
-                    >
-                      {isDeletingComp ? <Loader2 className="w-4 h-4 animate-spin" /> : "Confirm"}
-                    </Button>
-                  </div>
-                </div>
               ) : (
                 <div className="space-y-4 mb-6">
                   <p className="text-sm text-gray-300">
@@ -829,7 +1020,7 @@ export default function DrawArea() {
                   </p>
                   <div className="bg-red-950/30 border border-red-900/50 p-4 rounded-lg text-center">
                     <p className="text-base sm:text-lg font-black text-red-400 uppercase tracking-wide leading-snug">
-                      Are you sure? This hasnt been drawn yet
+                      {hasBeenDrawn ? "Competition has already been drawn." : "Are you sure? This hasnt been drawn yet"}
                     </p>
                   </div>
                   <div className="flex gap-3 pt-2">
@@ -845,7 +1036,7 @@ export default function DrawArea() {
                       disabled={isDeletingComp}
                       className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold"
                     >
-                      {isDeletingComp ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete Anyway"}
+                      {isDeletingComp ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete"}
                     </Button>
                   </div>
                 </div>
