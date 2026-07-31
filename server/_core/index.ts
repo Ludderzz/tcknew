@@ -5,9 +5,9 @@ import { createServer } from "http";
 import net from "net";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 
-import { appRouter } from "../routers.ts";
-import { createContext } from "./context";
-import { serveStatic, setupVite } from "./vite";
+import { appRouter } from "../routers.js"; // 👈 Changed from ../routers.ts
+import { createContext } from "./context.js"; // 👈 Added .js
+import { serveStatic, setupVite } from "./vite.js"; // 👈 Added .js
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
