@@ -636,6 +636,7 @@ export default function DrawArea() {
                       <img
                         src={getHighResFbAvatar(fbResult.winner.avatarUrl || fbResult.winner.avatar)}
                         alt={fbResult.winner.participantName}
+                        referrerPolicy="no-referrer" // 👈 Prevents Edge/Facebook CORS block
                         className="w-24 h-24 rounded-full object-cover border-4 border-[#1877F2] shadow-[0_0_20px_rgba(24,119,242,0.3)]"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
@@ -643,9 +644,13 @@ export default function DrawArea() {
                           if (target.src !== rawUrl) {
                             target.src = rawUrl;
                           } else {
-                            target.src = "https://via.placeholder.com/96?text=FB";
+                            // Use winner's initials instead of a generic "FB" text box!
+                            target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                              fbResult.winner.participantName || "User"
+                            )}&background=1877F2&color=fff`;
                           }
                         }}
+                      />
                       />
                     ) : (
                       <div className="w-24 h-24 rounded-full bg-[#1877F2]/20 border-4 border-[#1877F2] flex items-center justify-center text-2xl font-bold text-[#1877F2] shadow-[0_0_20px_rgba(24,119,242,0.3)]">
