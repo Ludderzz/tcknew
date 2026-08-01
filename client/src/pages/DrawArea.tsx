@@ -651,7 +651,6 @@ export default function DrawArea() {
                           }
                         }}
                       />
-                      />
                     ) : (
                       <div className="w-24 h-24 rounded-full bg-[#1877F2]/20 border-4 border-[#1877F2] flex items-center justify-center text-2xl font-bold text-[#1877F2] shadow-[0_0_20px_rgba(24,119,242,0.3)]">
                         FB
